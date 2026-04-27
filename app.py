@@ -1,8 +1,6 @@
 # ============================================================
 # APP: Alfabetización en IA para estudiantes de ciencias de la salud
-# Autor: Julián Andrés Hernández Quintero
-# Versión: 1.0
-# Framework: Streamlit
+# Con guardado automático en Supabase/PostgreSQL
 # ============================================================
 
 import streamlit as st
@@ -10,6 +8,7 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 from datetime import datetime
+from sqlalchemy import text
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -37,12 +36,7 @@ st.set_page_config(
 
 
 # ============================================================
-# ESCALAS E ÍTEMS
-# Nota metodológica:
-# Estos ítems en español son una adaptación operativa docente
-# basada en las dimensiones de instrumentos validados.
-# Para investigación psicométrica formal, reemplazar por ítems
-# originales autorizados o validar la traducción/adaptación.
+# ESCALAS
 # ============================================================
 
 LIKERT_7 = {
@@ -64,234 +58,61 @@ LIKERT_5 = {
 }
 
 
+# ============================================================
+# ÍTEMS
+# Nota: versión operativa docente basada en dimensiones validadas.
+# Para publicación psicométrica, requiere validación local.
+# ============================================================
+
 SNAIL_ITEMS = [
-    # Comprensión técnica - 14 ítems
-    {
-        "id": "SNAIL_TU_01",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo explicar, en términos generales, qué es la inteligencia artificial."
-    },
-    {
-        "id": "SNAIL_TU_02",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo diferenciar una herramienta de IA de un programa informático tradicional."
-    },
-    {
-        "id": "SNAIL_TU_03",
-        "dimension": "Comprensión técnica",
-        "item": "Comprendo que muchos sistemas de IA aprenden patrones a partir de datos."
-    },
-    {
-        "id": "SNAIL_TU_04",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo explicar por qué la calidad de los datos influye en el resultado de un sistema de IA."
-    },
-    {
-        "id": "SNAIL_TU_05",
-        "dimension": "Comprensión técnica",
-        "item": "Comprendo que los sistemas de IA pueden cometer errores aunque parezcan seguros."
-    },
-    {
-        "id": "SNAIL_TU_06",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo reconocer ejemplos de aprendizaje automático en aplicaciones cotidianas."
-    },
-    {
-        "id": "SNAIL_TU_07",
-        "dimension": "Comprensión técnica",
-        "item": "Entiendo que un modelo de IA puede funcionar bien en un contexto y mal en otro."
-    },
-    {
-        "id": "SNAIL_TU_08",
-        "dimension": "Comprensión técnica",
-        "item": "Comprendo que la IA generativa produce respuestas probabilísticas, no verdades garantizadas."
-    },
-    {
-        "id": "SNAIL_TU_09",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo explicar de forma básica qué significa entrenar un modelo de IA."
-    },
-    {
-        "id": "SNAIL_TU_10",
-        "dimension": "Comprensión técnica",
-        "item": "Comprendo la diferencia entre datos de entrada, procesamiento y salida en un sistema de IA."
-    },
-    {
-        "id": "SNAIL_TU_11",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo explicar por qué una IA puede reproducir sesgos presentes en los datos."
-    },
-    {
-        "id": "SNAIL_TU_12",
-        "dimension": "Comprensión técnica",
-        "item": "Comprendo que los sistemas de IA no tienen comprensión humana, aunque generen lenguaje coherente."
-    },
-    {
-        "id": "SNAIL_TU_13",
-        "dimension": "Comprensión técnica",
-        "item": "Puedo identificar límites técnicos de una herramienta de IA antes de usarla."
-    },
-    {
-        "id": "SNAIL_TU_14",
-        "dimension": "Comprensión técnica",
-        "item": "Comprendo que los resultados de IA deben interpretarse según el contexto y el propósito de uso."
-    },
+    {"id": "SNAIL_TU_01", "dimension": "Comprensión técnica", "item": "Puedo explicar, en términos generales, qué es la inteligencia artificial."},
+    {"id": "SNAIL_TU_02", "dimension": "Comprensión técnica", "item": "Puedo diferenciar una herramienta de IA de un programa informático tradicional."},
+    {"id": "SNAIL_TU_03", "dimension": "Comprensión técnica", "item": "Comprendo que muchos sistemas de IA aprenden patrones a partir de datos."},
+    {"id": "SNAIL_TU_04", "dimension": "Comprensión técnica", "item": "Puedo explicar por qué la calidad de los datos influye en el resultado de un sistema de IA."},
+    {"id": "SNAIL_TU_05", "dimension": "Comprensión técnica", "item": "Comprendo que los sistemas de IA pueden cometer errores aunque parezcan seguros."},
+    {"id": "SNAIL_TU_06", "dimension": "Comprensión técnica", "item": "Puedo reconocer ejemplos de aprendizaje automático en aplicaciones cotidianas."},
+    {"id": "SNAIL_TU_07", "dimension": "Comprensión técnica", "item": "Entiendo que un modelo de IA puede funcionar bien en un contexto y mal en otro."},
+    {"id": "SNAIL_TU_08", "dimension": "Comprensión técnica", "item": "Comprendo que la IA generativa produce respuestas probabilísticas, no verdades garantizadas."},
+    {"id": "SNAIL_TU_09", "dimension": "Comprensión técnica", "item": "Puedo explicar de forma básica qué significa entrenar un modelo de IA."},
+    {"id": "SNAIL_TU_10", "dimension": "Comprensión técnica", "item": "Comprendo la diferencia entre datos de entrada, procesamiento y salida en un sistema de IA."},
+    {"id": "SNAIL_TU_11", "dimension": "Comprensión técnica", "item": "Puedo explicar por qué una IA puede reproducir sesgos presentes en los datos."},
+    {"id": "SNAIL_TU_12", "dimension": "Comprensión técnica", "item": "Comprendo que los sistemas de IA no tienen comprensión humana, aunque generen lenguaje coherente."},
+    {"id": "SNAIL_TU_13", "dimension": "Comprensión técnica", "item": "Puedo identificar límites técnicos de una herramienta de IA antes de usarla."},
+    {"id": "SNAIL_TU_14", "dimension": "Comprensión técnica", "item": "Comprendo que los resultados de IA deben interpretarse según el contexto y el propósito de uso."},
 
-    # Valoración crítica - 10 ítems
-    {
-        "id": "SNAIL_CA_01",
-        "dimension": "Valoración crítica",
-        "item": "Antes de aceptar una respuesta de IA, verifico si la información proviene de fuentes confiables."
-    },
-    {
-        "id": "SNAIL_CA_02",
-        "dimension": "Valoración crítica",
-        "item": "Puedo identificar cuándo una respuesta de IA puede contener información falsa o inventada."
-    },
-    {
-        "id": "SNAIL_CA_03",
-        "dimension": "Valoración crítica",
-        "item": "Reconozco que el uso de IA en salud requiere precauciones éticas adicionales."
-    },
-    {
-        "id": "SNAIL_CA_04",
-        "dimension": "Valoración crítica",
-        "item": "Soy capaz de cuestionar los resultados de IA cuando afectan decisiones académicas o clínicas."
-    },
-    {
-        "id": "SNAIL_CA_05",
-        "dimension": "Valoración crítica",
-        "item": "Considero la privacidad y la confidencialidad antes de ingresar información en una herramienta de IA."
-    },
-    {
-        "id": "SNAIL_CA_06",
-        "dimension": "Valoración crítica",
-        "item": "Puedo reconocer riesgos de sesgo, discriminación o inequidad en sistemas de IA."
-    },
-    {
-        "id": "SNAIL_CA_07",
-        "dimension": "Valoración crítica",
-        "item": "Evalúo si una herramienta de IA es adecuada para la tarea antes de usarla."
-    },
-    {
-        "id": "SNAIL_CA_08",
-        "dimension": "Valoración crítica",
-        "item": "Comprendo que una IA no debe reemplazar el juicio profesional en salud."
-    },
-    {
-        "id": "SNAIL_CA_09",
-        "dimension": "Valoración crítica",
-        "item": "Puedo explicar por qué la transparencia del modelo es importante en contextos de salud."
-    },
-    {
-        "id": "SNAIL_CA_10",
-        "dimension": "Valoración crítica",
-        "item": "Soy capaz de justificar cuándo el uso de IA es apropiado y cuándo no lo es."
-    },
+    {"id": "SNAIL_CA_01", "dimension": "Valoración crítica", "item": "Antes de aceptar una respuesta de IA, verifico si la información proviene de fuentes confiables."},
+    {"id": "SNAIL_CA_02", "dimension": "Valoración crítica", "item": "Puedo identificar cuándo una respuesta de IA puede contener información falsa o inventada."},
+    {"id": "SNAIL_CA_03", "dimension": "Valoración crítica", "item": "Reconozco que el uso de IA en salud requiere precauciones éticas adicionales."},
+    {"id": "SNAIL_CA_04", "dimension": "Valoración crítica", "item": "Soy capaz de cuestionar los resultados de IA cuando afectan decisiones académicas o clínicas."},
+    {"id": "SNAIL_CA_05", "dimension": "Valoración crítica", "item": "Considero la privacidad y la confidencialidad antes de ingresar información en una herramienta de IA."},
+    {"id": "SNAIL_CA_06", "dimension": "Valoración crítica", "item": "Puedo reconocer riesgos de sesgo, discriminación o inequidad en sistemas de IA."},
+    {"id": "SNAIL_CA_07", "dimension": "Valoración crítica", "item": "Evalúo si una herramienta de IA es adecuada para la tarea antes de usarla."},
+    {"id": "SNAIL_CA_08", "dimension": "Valoración crítica", "item": "Comprendo que una IA no debe reemplazar el juicio profesional en salud."},
+    {"id": "SNAIL_CA_09", "dimension": "Valoración crítica", "item": "Puedo explicar por qué la transparencia del modelo es importante en contextos de salud."},
+    {"id": "SNAIL_CA_10", "dimension": "Valoración crítica", "item": "Soy capaz de justificar cuándo el uso de IA es apropiado y cuándo no lo es."},
 
-    # Aplicación práctica - 7 ítems
-    {
-        "id": "SNAIL_PA_01",
-        "dimension": "Aplicación práctica",
-        "item": "Puedo usar herramientas de IA para apoyar mi aprendizaje sin copiar respuestas de forma acrítica."
-    },
-    {
-        "id": "SNAIL_PA_02",
-        "dimension": "Aplicación práctica",
-        "item": "Sé formular instrucciones claras para obtener mejores respuestas de una herramienta de IA."
-    },
-    {
-        "id": "SNAIL_PA_03",
-        "dimension": "Aplicación práctica",
-        "item": "Puedo usar IA para organizar ideas, resumir información o planear tareas académicas."
-    },
-    {
-        "id": "SNAIL_PA_04",
-        "dimension": "Aplicación práctica",
-        "item": "Puedo comparar la respuesta de una IA con literatura científica o guías académicas."
-    },
-    {
-        "id": "SNAIL_PA_05",
-        "dimension": "Aplicación práctica",
-        "item": "Sé cuándo declarar el uso de IA en una actividad académica."
-    },
-    {
-        "id": "SNAIL_PA_06",
-        "dimension": "Aplicación práctica",
-        "item": "Puedo integrar la IA como apoyo, manteniendo mi responsabilidad sobre el producto final."
-    },
-    {
-        "id": "SNAIL_PA_07",
-        "dimension": "Aplicación práctica",
-        "item": "Puedo usar IA para practicar razonamiento clínico sin asumir que sus respuestas son diagnósticos definitivos."
-    }
+    {"id": "SNAIL_PA_01", "dimension": "Aplicación práctica", "item": "Puedo usar herramientas de IA para apoyar mi aprendizaje sin copiar respuestas de forma acrítica."},
+    {"id": "SNAIL_PA_02", "dimension": "Aplicación práctica", "item": "Sé formular instrucciones claras para obtener mejores respuestas de una herramienta de IA."},
+    {"id": "SNAIL_PA_03", "dimension": "Aplicación práctica", "item": "Puedo usar IA para organizar ideas, resumir información o planear tareas académicas."},
+    {"id": "SNAIL_PA_04", "dimension": "Aplicación práctica", "item": "Puedo comparar la respuesta de una IA con literatura científica o guías académicas."},
+    {"id": "SNAIL_PA_05", "dimension": "Aplicación práctica", "item": "Sé cuándo declarar el uso de IA en una actividad académica."},
+    {"id": "SNAIL_PA_06", "dimension": "Aplicación práctica", "item": "Puedo integrar la IA como apoyo, manteniendo mi responsabilidad sobre el producto final."},
+    {"id": "SNAIL_PA_07", "dimension": "Aplicación práctica", "item": "Puedo usar IA para practicar razonamiento clínico sin asumir que sus respuestas son diagnósticos definitivos."}
 ]
 
 
 GAAIS_ITEMS = [
-    # Actitudes positivas
-    {
-        "id": "GAAIS_POS_01",
-        "dimension": "Actitud positiva hacia la IA",
-        "item": "La inteligencia artificial puede tener aplicaciones beneficiosas en la educación en salud.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_POS_02",
-        "dimension": "Actitud positiva hacia la IA",
-        "item": "La inteligencia artificial puede apoyar el aprendizaje de los estudiantes de ciencias de la salud.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_POS_03",
-        "dimension": "Actitud positiva hacia la IA",
-        "item": "Me interesa aprender a usar herramientas de inteligencia artificial de forma responsable.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_POS_04",
-        "dimension": "Actitud positiva hacia la IA",
-        "item": "La inteligencia artificial puede ayudar a mejorar algunos procesos académicos o clínicos.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_POS_05",
-        "dimension": "Actitud positiva hacia la IA",
-        "item": "Considero que comprender la IA será importante para mi futuro profesional.",
-        "reverse": False
-    },
+    {"id": "GAAIS_POS_01", "dimension": "Actitud positiva hacia la IA", "item": "La inteligencia artificial puede tener aplicaciones beneficiosas en la educación en salud."},
+    {"id": "GAAIS_POS_02", "dimension": "Actitud positiva hacia la IA", "item": "La inteligencia artificial puede apoyar el aprendizaje de los estudiantes de ciencias de la salud."},
+    {"id": "GAAIS_POS_03", "dimension": "Actitud positiva hacia la IA", "item": "Me interesa aprender a usar herramientas de inteligencia artificial de forma responsable."},
+    {"id": "GAAIS_POS_04", "dimension": "Actitud positiva hacia la IA", "item": "La inteligencia artificial puede ayudar a mejorar algunos procesos académicos o clínicos."},
+    {"id": "GAAIS_POS_05", "dimension": "Actitud positiva hacia la IA", "item": "Considero que comprender la IA será importante para mi futuro profesional."},
 
-    # Actitudes negativas / preocupación
-    {
-        "id": "GAAIS_NEG_01",
-        "dimension": "Preocupación o actitud negativa hacia la IA",
-        "item": "Me preocupa que la inteligencia artificial se use sin suficiente supervisión humana.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_NEG_02",
-        "dimension": "Preocupación o actitud negativa hacia la IA",
-        "item": "Me preocupa que los estudiantes dependan demasiado de la inteligencia artificial.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_NEG_03",
-        "dimension": "Preocupación o actitud negativa hacia la IA",
-        "item": "Me preocupa que la inteligencia artificial produzca errores difíciles de detectar.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_NEG_04",
-        "dimension": "Preocupación o actitud negativa hacia la IA",
-        "item": "Me preocupa que la inteligencia artificial afecte la privacidad de las personas.",
-        "reverse": False
-    },
-    {
-        "id": "GAAIS_NEG_05",
-        "dimension": "Preocupación o actitud negativa hacia la IA",
-        "item": "Me preocupa que la inteligencia artificial sea usada de manera poco ética en salud.",
-        "reverse": False
-    }
+    {"id": "GAAIS_NEG_01", "dimension": "Preocupación o actitud negativa hacia la IA", "item": "Me preocupa que la inteligencia artificial se use sin suficiente supervisión humana."},
+    {"id": "GAAIS_NEG_02", "dimension": "Preocupación o actitud negativa hacia la IA", "item": "Me preocupa que los estudiantes dependan demasiado de la inteligencia artificial."},
+    {"id": "GAAIS_NEG_03", "dimension": "Preocupación o actitud negativa hacia la IA", "item": "Me preocupa que la inteligencia artificial produzca errores difíciles de detectar."},
+    {"id": "GAAIS_NEG_04", "dimension": "Preocupación o actitud negativa hacia la IA", "item": "Me preocupa que la inteligencia artificial afecte la privacidad de las personas."},
+    {"id": "GAAIS_NEG_05", "dimension": "Preocupación o actitud negativa hacia la IA", "item": "Me preocupa que la inteligencia artificial sea usada de manera poco ética en salud."}
 ]
 
 
@@ -300,18 +121,12 @@ GAAIS_ITEMS = [
 # ============================================================
 
 def porcentaje_desde_media(media, minimo, maximo):
-    """
-    Convierte una media Likert en porcentaje 0-100.
-    """
     if pd.isna(media):
         return np.nan
     return ((media - minimo) / (maximo - minimo)) * 100
 
 
 def interpretar_porcentaje(porcentaje):
-    """
-    Interpretación docente, no diagnóstica.
-    """
     if pd.isna(porcentaje):
         return "Sin información suficiente"
     if porcentaje < 40:
@@ -323,9 +138,6 @@ def interpretar_porcentaje(porcentaje):
 
 
 def recomendacion_por_nivel(nombre, porcentaje):
-    """
-    Recomendaciones educativas automáticas.
-    """
     nivel = interpretar_porcentaje(porcentaje)
 
     if nivel == "Nivel bajo":
@@ -341,39 +153,13 @@ def recomendacion_por_nivel(nombre, porcentaje):
     elif nivel == "Nivel alto":
         return (
             f"En {nombre} se observa un desempeño favorable. Se recomienda avanzar hacia tareas "
-            "de evaluación crítica, uso ético, diseño de prompts y análisis de casos complejos."
+            "de evaluación crítica, uso ético, diseño de instrucciones y análisis de casos complejos."
         )
     else:
         return "No fue posible generar recomendación por ausencia de datos."
 
 
-def cronbach_alpha(df_items):
-    """
-    Calcula alfa de Cronbach.
-    Requiere un DataFrame donde cada columna sea un ítem.
-    """
-    df = df_items.dropna(axis=0, how="any")
-
-    if df.shape[0] < 2 or df.shape[1] < 2:
-        return np.nan
-
-    item_variances = df.var(axis=0, ddof=1)
-    total_score = df.sum(axis=1)
-    n_items = df.shape[1]
-
-    total_variance = total_score.var(ddof=1)
-
-    if total_variance == 0:
-        return np.nan
-
-    alpha = (n_items / (n_items - 1)) * (1 - item_variances.sum() / total_variance)
-    return alpha
-
-
 def calcular_resultados(respuestas, items, minimo, maximo):
-    """
-    Genera resultados por dimensión y globales.
-    """
     registros = []
 
     for item in items:
@@ -417,18 +203,129 @@ def calcular_resultados(respuestas, items, minimo, maximo):
     return df, resumen_dimension, resultado_global
 
 
+def cronbach_alpha(df_items):
+    df = df_items.dropna(axis=0, how="any")
+
+    if df.shape[0] < 2 or df.shape[1] < 2:
+        return np.nan
+
+    item_variances = df.var(axis=0, ddof=1)
+    total_score = df.sum(axis=1)
+    n_items = df.shape[1]
+    total_variance = total_score.var(ddof=1)
+
+    if total_variance == 0:
+        return np.nan
+
+    alpha = (n_items / (n_items - 1)) * (1 - item_variances.sum() / total_variance)
+    return alpha
+
+
 # ============================================================
-# FUNCIÓN PARA PDF
+# GUARDADO EN SUPABASE / POSTGRESQL
+# ============================================================
+
+def guardar_respuestas_en_bd(
+    datos_participante,
+    df_snail,
+    global_snail,
+    df_gaais,
+    global_gaais
+):
+    """
+    Guarda cada respuesta individual en Supabase/PostgreSQL.
+    Requiere configurar en Streamlit Secrets:
+
+    [connections.respuestas_db]
+    url = "postgresql://usuario:contraseña@host:puerto/postgres"
+    """
+
+    conn = st.connection("respuestas_db", type="sql")
+
+    df_snail_export = df_snail.copy()
+    df_snail_export["instrumento"] = "SNAIL - Alfabetización en IA"
+    df_snail_export["porcentaje_global_alfabetizacion"] = global_snail["porcentaje_global"]
+    df_snail_export["interpretacion_global_alfabetizacion"] = global_snail["interpretacion_global"]
+    df_snail_export["porcentaje_global_actitudes"] = global_gaais["porcentaje_global"]
+    df_snail_export["interpretacion_global_actitudes"] = global_gaais["interpretacion_global"]
+
+    df_gaais_export = df_gaais.copy()
+    df_gaais_export["instrumento"] = "GAAIS - Actitudes hacia IA"
+    df_gaais_export["porcentaje_global_alfabetizacion"] = global_snail["porcentaje_global"]
+    df_gaais_export["interpretacion_global_alfabetizacion"] = global_snail["interpretacion_global"]
+    df_gaais_export["porcentaje_global_actitudes"] = global_gaais["porcentaje_global"]
+    df_gaais_export["interpretacion_global_actitudes"] = global_gaais["interpretacion_global"]
+
+    df_final = pd.concat([df_snail_export, df_gaais_export], ignore_index=True)
+
+    with conn.session as session:
+        for _, row in df_final.iterrows():
+            session.execute(
+                text("""
+                    INSERT INTO respuestas_ia_salud (
+                        codigo,
+                        programa,
+                        semestre,
+                        edad,
+                        uso_ia,
+                        instrumento,
+                        item_id,
+                        dimension,
+                        item_texto,
+                        respuesta,
+                        porcentaje_global_alfabetizacion,
+                        interpretacion_global_alfabetizacion,
+                        porcentaje_global_actitudes,
+                        interpretacion_global_actitudes
+                    )
+                    VALUES (
+                        :codigo,
+                        :programa,
+                        :semestre,
+                        :edad,
+                        :uso_ia,
+                        :instrumento,
+                        :item_id,
+                        :dimension,
+                        :item_texto,
+                        :respuesta,
+                        :porcentaje_global_alfabetizacion,
+                        :interpretacion_global_alfabetizacion,
+                        :porcentaje_global_actitudes,
+                        :interpretacion_global_actitudes
+                    )
+                """),
+                {
+                    "codigo": datos_participante["codigo"],
+                    "programa": datos_participante["programa"],
+                    "semestre": datos_participante["semestre"],
+                    "edad": int(datos_participante["edad"]),
+                    "uso_ia": datos_participante["uso_ia"],
+                    "instrumento": row["instrumento"],
+                    "item_id": row["id"],
+                    "dimension": row["dimension"],
+                    "item_texto": row["item"],
+                    "respuesta": int(row["respuesta"]),
+                    "porcentaje_global_alfabetizacion": float(row["porcentaje_global_alfabetizacion"]),
+                    "interpretacion_global_alfabetizacion": row["interpretacion_global_alfabetizacion"],
+                    "porcentaje_global_actitudes": float(row["porcentaje_global_actitudes"]),
+                    "interpretacion_global_actitudes": row["interpretacion_global_actitudes"]
+                }
+            )
+
+        session.commit()
+
+
+# ============================================================
+# PDF
 # ============================================================
 
 def crear_pdf(
     datos_participante,
     resumen_snail,
     global_snail,
-    alpha_snail,
     resumen_gaais,
     global_gaais,
-    alpha_gaais,
     respuestas_snail,
     respuestas_gaais
 ):
@@ -493,7 +390,6 @@ def crear_pdf(
 
     story.append(Spacer(1, 8))
 
-    # Datos del participante
     story.append(Paragraph("1. Datos generales", subtitulo_style))
 
     datos_tabla = [
@@ -514,21 +410,14 @@ def crear_pdf(
     ]))
     story.append(tabla)
 
-    # Resultados SNAIL
     story.append(Spacer(1, 12))
     story.append(Paragraph("2. Resultados: alfabetización en IA", subtitulo_style))
 
     texto_snail = (
         f"Puntaje global: {global_snail['porcentaje_global']:.1f}% "
         f"({global_snail['interpretacion_global']}). "
-        f"Media global: {global_snail['media_global']:.2f} sobre 7. "
+        f"Media global: {global_snail['media_global']:.2f} sobre 7."
     )
-
-    if not pd.isna(alpha_snail):
-        texto_snail += f"Consistencia interna estimada en esta aplicación: α = {alpha_snail:.3f}."
-    else:
-        texto_snail += "No se estimó alfa de Cronbach porque se requiere más de un registro acumulado."
-
     story.append(Paragraph(texto_snail, normal_style))
 
     tabla_snail = [["Dimensión", "Media", "Porcentaje", "Interpretación"]]
@@ -558,21 +447,14 @@ def crear_pdf(
             normal_style
         ))
 
-    # Resultados GAAIS
     story.append(Spacer(1, 12))
     story.append(Paragraph("3. Resultados: actitudes hacia la IA", subtitulo_style))
 
     texto_gaais = (
         f"Puntaje global: {global_gaais['porcentaje_global']:.1f}% "
         f"({global_gaais['interpretacion_global']}). "
-        f"Media global: {global_gaais['media_global']:.2f} sobre 5. "
+        f"Media global: {global_gaais['media_global']:.2f} sobre 5."
     )
-
-    if not pd.isna(alpha_gaais):
-        texto_gaais += f"Consistencia interna estimada en esta aplicación: α = {alpha_gaais:.3f}."
-    else:
-        texto_gaais += "No se estimó alfa de Cronbach porque se requiere más de un registro acumulado."
-
     story.append(Paragraph(texto_gaais, normal_style))
 
     tabla_gaais = [["Dimensión", "Media", "Porcentaje", "Interpretación"]]
@@ -593,7 +475,6 @@ def crear_pdf(
     ]))
     story.append(t_gaais)
 
-    # Nota metodológica
     story.append(Spacer(1, 12))
     story.append(Paragraph("4. Nota metodológica", subtitulo_style))
 
@@ -605,10 +486,8 @@ def crear_pdf(
         "traducción inversa, juicio de expertos, pilotaje, análisis de consistencia interna, análisis factorial "
         "y evaluación de validez de contenido y constructo."
     )
-
     story.append(Paragraph(nota, normal_style))
 
-    # Referencias
     story.append(Spacer(1, 12))
     story.append(Paragraph("5. Referencias base", subtitulo_style))
 
@@ -621,7 +500,6 @@ def crear_pdf(
     for ref in referencias:
         story.append(Paragraph(ref, small_style))
 
-    # Respuestas detalladas
     story.append(PageBreak())
     story.append(Paragraph("Anexo. Respuestas por ítem", subtitulo_style))
 
@@ -655,17 +533,18 @@ st.title("🧠 Alfabetización en inteligencia artificial para estudiantes de ci
 
 st.markdown(
     """
-Esta aplicación permite diligenciar dos formularios:  
-**1) Alfabetización en IA** basada en la estructura SNAIL.  
-**2) Actitudes hacia la IA** basada en la estructura GAAIS.  
+Esta aplicación permite diligenciar dos formularios:
 
-Al finalizar, calcula puntajes por dimensión, porcentajes globales y genera un **informe PDF**.
+**1. Alfabetización en IA**, basada en la estructura del instrumento SNAIL.  
+**2. Actitudes hacia la IA**, basada en la estructura del instrumento GAAIS.
+
+Al finalizar, la aplicación calcula resultados, genera un informe PDF y guarda automáticamente las respuestas en la base de datos.
 """
 )
 
 st.warning(
     "Nota metodológica: los ítems en español incluidos son una adaptación operativa docente. "
-    "Para investigación publicable, valide formalmente la traducción/adaptación antes de reportarla como versión validada."
+    "Para investigación psicométrica publicable, valide formalmente la traducción/adaptación antes de reportarla como versión validada."
 )
 
 
@@ -775,7 +654,7 @@ for dimension in ["Actitud positiva hacia la IA", "Preocupación o actitud negat
 
 
 # ============================================================
-# VALIDACIÓN DE RESPUESTAS
+# PROGRESO
 # ============================================================
 
 total_snail = len(SNAIL_ITEMS)
@@ -793,22 +672,22 @@ st.sidebar.progress(contestadas_gaais / total_gaais)
 
 
 # ============================================================
-# BOTÓN DE CÁLCULO
+# RESULTADOS
 # ============================================================
 
 st.header("4. Resultados")
 
-calcular = st.button("Calcular resultados y preparar informe PDF")
+calcular = st.button("Calcular resultados, guardar respuestas y preparar informe PDF")
 
 if calcular:
+
     if contestadas_snail < total_snail or contestadas_gaais < total_gaais:
-        st.error(
-            "Faltan respuestas por diligenciar. Revisa los formularios antes de calcular el informe."
-        )
+        st.error("Faltan respuestas por diligenciar. Revisa los formularios antes de calcular el informe.")
+
     elif not codigo.strip():
         st.error("Por favor diligencia el nombre o código del estudiante.")
+
     else:
-        # Calcular resultados
         df_snail, resumen_snail, global_snail = calcular_resultados(
             respuestas=respuestas_snail,
             items=SNAIL_ITEMS,
@@ -823,35 +702,38 @@ if calcular:
             maximo=5
         )
 
-        # Alfa de Cronbach para un solo sujeto no es estimable de forma real.
-        # Se deja como NA en aplicación individual.
-        # Para cálculo grupal, se requiere acumular datos de varios estudiantes.
-        alpha_snail = np.nan
-        alpha_gaais = np.nan
-
         st.success("Resultados calculados correctamente.")
+
+        try:
+            guardar_respuestas_en_bd(
+                datos_participante=datos_participante,
+                df_snail=df_snail,
+                global_snail=global_snail,
+                df_gaais=df_gaais,
+                global_gaais=global_gaais
+            )
+
+            st.success("Las respuestas fueron guardadas correctamente en la base de datos.")
+
+        except Exception as e:
+            st.warning(
+                f"Los resultados se calcularon, pero no fue posible guardar en la base de datos: {e}"
+            )
 
         col_a, col_b = st.columns(2)
 
         with col_a:
             st.subheader("Alfabetización en IA")
-            st.metric(
-                "Porcentaje global",
-                f"{global_snail['porcentaje_global']:.1f}%"
-            )
+            st.metric("Porcentaje global", f"{global_snail['porcentaje_global']:.1f}%")
             st.write(f"**Interpretación:** {global_snail['interpretacion_global']}")
             st.dataframe(resumen_snail, use_container_width=True)
 
         with col_b:
             st.subheader("Actitudes hacia la IA")
-            st.metric(
-                "Porcentaje global",
-                f"{global_gaais['porcentaje_global']:.1f}%"
-            )
+            st.metric("Porcentaje global", f"{global_gaais['porcentaje_global']:.1f}%")
             st.write(f"**Interpretación:** {global_gaais['interpretacion_global']}")
             st.dataframe(resumen_gaais, use_container_width=True)
 
-        # Recomendaciones
         st.subheader("Recomendaciones pedagógicas automáticas")
 
         st.markdown("### Alfabetización en IA")
@@ -868,7 +750,6 @@ if calcular:
                 f"{recomendacion_por_nivel(row['dimension'], row['porcentaje'])}"
             )
 
-        # Preparar CSV de respuestas
         df_snail_export = df_snail.copy()
         df_snail_export["instrumento"] = "SNAIL - Alfabetización en IA"
 
@@ -889,15 +770,12 @@ if calcular:
             mime="text/csv"
         )
 
-        # Crear PDF
         pdf = crear_pdf(
             datos_participante=datos_participante,
             resumen_snail=resumen_snail,
             global_snail=global_snail,
-            alpha_snail=alpha_snail,
             resumen_gaais=resumen_gaais,
             global_gaais=global_gaais,
-            alpha_gaais=alpha_gaais,
             respuestas_snail=df_snail,
             respuestas_gaais=df_gaais
         )
@@ -911,7 +789,7 @@ if calcular:
 
 
 # ============================================================
-# SECCIÓN PARA USO GRUPAL OPCIONAL
+# ANÁLISIS GRUPAL OPCIONAL
 # ============================================================
 
 st.header("5. Análisis grupal opcional")
@@ -936,7 +814,6 @@ if archivo_grupal is not None:
         st.dataframe(df_grupal.head(), use_container_width=True)
 
         if "instrumento" in df_grupal.columns and "id" in df_grupal.columns and "respuesta" in df_grupal.columns:
-            # Tabla ancha por instrumento
             resultados_alpha = []
 
             for instrumento in df_grupal["instrumento"].dropna().unique():
@@ -966,7 +843,6 @@ if archivo_grupal is not None:
                 st.subheader("Consistencia interna grupal")
                 st.dataframe(df_alpha, use_container_width=True)
 
-            # Resumen por instrumento y dimensión
             resumen_grupal = (
                 df_grupal
                 .groupby(["instrumento", "dimension"])
